@@ -1,0 +1,69 @@
+DROP TABLE CUSTOM.FBN_AM CASCADE CONSTRAINTS;
+
+--
+-- FBN_AM  (Table) 
+--
+CREATE TABLE CUSTOM.FBN_AM
+(
+  FINACLE_ACCT_NUM_RIB  VARCHAR2(16 CHAR),
+  FINACLE_ACCT_NUM      VARCHAR2(16 CHAR),
+  OLD_ACCT_NUM          VARCHAR2(16 CHAR),
+  SOL_ID                VARCHAR2(8 CHAR),
+  BANK_ID               VARCHAR2(8 CHAR)        DEFAULT NULL                  NOT NULL
+)
+
+
+DROP PUBLIC SYNONYM FBN_AM;
+
+--
+-- FBN_AM  (Synonym) 
+--
+CREATE PUBLIC SYNONYM FBN_AM FOR CUSTOM.FBN_AM;
+
+
+CREATE OR REPLACE FUNCTION CUSTOM.getFinacleAcctNumber (l_foracid VARCHAR2)
+   RETURN VARCHAR2
+IS
+   v_foracid   VARCHAR2 (30) := NULL;
+BEGIN
+   IF (LENGTH (l_foracid) = 23)
+   THEN
+      v_foracid := SUBSTR (l_foracid, 11, 13);
+   ELSE
+      BEGIN
+         -- Check Gam First-------------
+
+         SELECT   foracid
+           INTO   v_foracid
+           FROM   tbaadm.gam
+          WHERE   foracid = l_foracid and bank_id='03';
+      EXCEPTION
+         WHEN OTHERS
+         THEN
+            BEGIN
+            -- Check FBN_AM for Delta Account Number ----
+               SELECT   FINACLE_ACCT_NUM_RIB
+                 INTO   v_foracid
+                 FROM   custom.fbn_am
+                WHERE   OLD_ACCT_NUM = l_foracid and bank_id='03';
+            EXCEPTION
+               WHEN OTHERS
+               THEN
+                -- Check FBN_AM for Old Finacle Account Number ----
+                  BEGIN
+                     SELECT   FINACLE_ACCT_NUM_RIB
+                       INTO   v_foracid
+                       FROM   custom.fbn_am
+                      WHERE   FINACLE_ACCT_NUM = l_foracid and bank_id='03';
+                  EXCEPTION
+                     WHEN OTHERS
+                     THEN
+                        v_foracid := l_foracid;
+                  END;
+            END;
+      END;
+   END IF;
+
+   RETURN v_foracid;
+END;
+/
